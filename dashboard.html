@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aeroporto Parque – Simulação de Preços (1–30 dias)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --blue:    #1a56db;
+    --blue-lt: #e8f0fe;
+    --teal:    #0e7490;
+    --teal-lt: #cffafe;
+    --green:   #057a55;
+    --green-lt:#def7ec;
+    --amber:   #b45309;
+    --amber-lt:#fef3c7;
+    --gray1:   #111827;
+    --gray2:   #374151;
+    --gray3:   #6b7280;
+    --gray4:   #e5e7eb;
+    --gray5:   #f9fafb;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--gray5); color: var(--gray1); min-height: 100vh; }
+
+  header { background: linear-gradient(135deg, #1a3a6e 0%, #1a56db 100%); color: #fff; padding: 28px 32px 24px; }
+  header h1 { font-size: 1.65rem; font-weight: 700; letter-spacing: -0.3px; }
+  header p  { margin-top: 6px; font-size: 0.92rem; opacity: .82; }
+  .badge { display: inline-block; margin-top: 10px; background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.35); padding: 3px 10px; border-radius: 999px; font-size: .78rem; letter-spacing: .4px; }
+
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px 20px 48px; }
+
+  /* KPI cards */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 26px; }
+  .kpi { background: #fff; border-radius: 10px; padding: 18px 20px; border: 1px solid var(--gray4); box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+  .kpi .label { font-size: .75rem; color: var(--gray3); text-transform: uppercase; letter-spacing: .6px; }
+  .kpi .value { font-size: 1.55rem; font-weight: 700; margin-top: 4px; }
+  .kpi .sub   { font-size: .78rem; color: var(--gray3); margin-top: 2px; }
+  .kpi.blue  { border-top: 3px solid var(--blue);  } .kpi.blue  .value { color: var(--blue); }
+  .kpi.teal  { border-top: 3px solid var(--teal);  } .kpi.teal  .value { color: var(--teal); }
+  .kpi.green { border-top: 3px solid var(--green); } .kpi.green .value { color: var(--green); }
+  .kpi.amber { border-top: 3px solid #d97706;      } .kpi.amber .value { color: #92400e; }
+  .kpi.red   { border-top: 3px solid #dc2626;      } .kpi.red   .value { color: #991b1b; }
+
+  /* Panels */
+  .panels { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+  @media (max-width: 760px) { .panels { grid-template-columns: 1fr; } }
+  .panel, .panel-full {
+    background: #fff; border-radius: 10px; border: 1px solid var(--gray4);
+    box-shadow: 0 1px 3px rgba(0,0,0,.06); padding: 20px 22px;
+  }
+  .panel-full { margin-bottom: 22px; }
+  .panel h2, .panel-full h2 { font-size: 1rem; font-weight: 600; margin-bottom: 16px; color: var(--gray2); }
+
+  /* Controls */
+  .controls {
+    display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 22px;
+    background: #fff; border: 1px solid var(--gray4); border-radius: 10px; padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  }
+  .ctrl-group { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl-group label { font-size: .8rem; font-weight: 600; color: var(--gray2); }
+  select { border: 1px solid var(--gray4); border-radius: 6px; padding: 7px 10px; background: var(--gray5); color: var(--gray1); cursor: pointer; font-size: .88rem; }
+  .extras-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .extra-chip {
+    display: flex; align-items: center; gap: 6px; padding: 5px 10px;
+    border: 1px solid var(--gray4); border-radius: 6px; background: var(--gray5);
+    font-size: .82rem; cursor: pointer; user-select: none; transition: background .12s, border-color .12s;
+  }
+  .extra-chip input { accent-color: var(--blue); cursor: pointer; }
+  .extra-chip:has(input:checked) { background: var(--blue-lt); border-color: #93c5fd; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  thead th { background: var(--gray5); border-bottom: 2px solid var(--gray4); padding: 10px 12px; text-align: right; font-weight: 600; color: var(--gray2); white-space: nowrap; }
+  thead th:first-child { text-align: center; }
+  tbody tr { border-bottom: 1px solid var(--gray4); transition: background .12s; }
+  tbody tr:hover { background: #f0f4ff; }
+  tbody td { padding: 8px 12px; text-align: right; }
+  tbody td:first-child { text-align: center; font-weight: 600; color: var(--gray2); }
+  tr.min-row td { background: #fff7ed; color: #92400e; font-style: italic; }
+  tr.week-row td { background: var(--blue-lt); }
+  tr.month-row td { background: var(--green-lt); }
+
+  /* Extras table */
+  .extras-table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  .extras-table th { background: var(--gray5); border-bottom: 2px solid var(--gray4); padding: 9px 14px; text-align: left; font-weight: 600; color: var(--gray2); }
+  .extras-table td { padding: 8px 14px; border-bottom: 1px solid var(--gray4); }
+  .extras-table td:last-child { text-align: right; font-weight: 600; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+  .tag.lavagem { background: var(--blue-lt); color: var(--blue); }
+  .tag.transporte { background: var(--green-lt); color: var(--green); }
+  .tag.veiculo { background: var(--teal-lt); color: var(--teal); }
+  .tag.outro { background: var(--amber-lt); color: var(--amber); }
+
+  /* Notes */
+  .notes { background: var(--amber-lt); border: 1px solid #fbbf24; border-radius: 8px; padding: 14px 18px; font-size: .84rem; color: var(--amber); margin-top: 20px; }
+  .notes ul { margin-top: 6px; padding-left: 18px; }
+  .notes li { margin-top: 4px; }
+
+  .section-title { font-size: 1.05rem; font-weight: 700; color: var(--gray1); margin: 28px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--gray4); }
+
+  footer { text-align: center; font-size: .78rem; color: var(--gray3); padding: 20px; border-top: 1px solid var(--gray4); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Aeroporto Parque &mdash; Simulação de Preços</h1>
+  <p>Parque de estacionamento low-cost no Aeroporto de Lisboa &bull; Prior Velho</p>
+  <span class="badge" id="runDate"></span>
+</header>
+
+<div class="container">
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="ctrl-group">
+      <label>Tipo de parque</label>
+      <select id="parkType" onchange="render()">
+        <option value="descoberto">Parque Descoberto</option>
+        <option value="coberto_toldo">Parque Coberto Toldo</option>
+        <option value="coberto">Parque Coberto</option>
+        <option value="all">Comparar todos</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <label>Veículo</label>
+      <select id="vehicleType" onchange="render()">
+        <option value="standard">Standard (&lt; 5 m)</option>
+        <option value="large">Grande / Motorhome (&gt; 5 m)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Extras -->
+  <div class="panel-full" style="margin-bottom:22px">
+    <h2>Serviços extra a incluir no preço total</h2>
+    <div class="extras-grid" id="extrasGrid"></div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpis" id="kpiRow"></div>
+
+  <!-- Charts -->
+  <div class="panels">
+    <div class="panel">
+      <h2>Evolução do custo total (1–30 dias)</h2>
+      <canvas id="lineChart" height="230"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Custo médio por dia (€/dia)</h2>
+      <canvas id="avgChart" height="230"></canvas>
+    </div>
+  </div>
+
+  <!-- Price table -->
+  <div class="panel-full">
+    <h2>Tabela de preços — 1 a 30 dias</h2>
+    <div class="table-wrap">
+      <table>
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+    <div class="notes">
+      <strong>Notas tarifárias:</strong>
+      <ul>
+        <li>Tarifa mínima de <strong>18&thinsp;€</strong> para estadias com valor calculado inferior (aplica-se automaticamente).</li>
+        <li>Preços calculados por <strong>dia de calendário</strong>, sem fraccionamentos.</li>
+        <li>Carência de 4 horas após meia-noite incluída.</li>
+        <li>Veículos grandes (&gt;&thinsp;5&thinsp;m — caravanas, vans, autocarros): tarifa superior por dia.</li>
+        <li>Fonte: simulação em <strong>aeroportoparque.com/reserva/</strong> — dados de <span id="footDate"></span>.</li>
+        <li id="toldoNote" style="color:#dc2626;display:none">* Preço do Parque Coberto Toldo a confirmar — usado valor estimado de 7&thinsp;€/dia.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Extras catalogue -->
+  <div class="section-title">Catálogo de Serviços Extra</div>
+  <div class="panel-full">
+    <table class="extras-table">
+      <thead>
+        <tr><th>Serviço</th><th>Categoria</th><th>Preço</th></tr>
+      </thead>
+      <tbody id="extrasTableBody"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  Dashboard gerado automaticamente &bull; aeroportoparque.com &bull; Parque de estacionamento Aeroporto Lisboa
+</footer>
+
+<script>
+// ── Rates ──────────────────────────────────────────────────────────────────
+const PARKS = {
+  descoberto:    { label: 'Parque Descoberto',    color: '#1a56db', std: 6,  large: 12 },
+  coberto_toldo: { label: 'Parque Coberto Toldo', color: '#0e7490', std: 7,  large: 13, estimated: true },
+  coberto:       { label: 'Parque Coberto',       color: '#057a55', std: 8,  large: 14 },
+};
+const MIN_CHARGE = 18;
+const DAYS = Array.from({ length: 30 }, (_, i) => i + 1);
+
+const EXTRAS_LIST = [
+  { id: 'transporte',  label: 'Transporte Parque ↔ Aeroporto',       price: 10,  cat: 'transporte' },
+  { id: 'valet',       label: 'Valet Parking',                        price: 15,  cat: 'transporte' },
+  { id: 'oriente',     label: 'Entrega/Recolha Estação Oriente',       price: 20,  cat: 'transporte' },
+  { id: 'apolonia',    label: 'Entrega/Recolha Santa Apolónia',        price: 25,  cat: 'transporte' },
+  { id: 'chave',       label: 'Levar a Chave (c/ disponibilidade)',    price: 20,  cat: 'outro' },
+  { id: 'lav_int',     label: 'Lavagem VIP Interior',                  price: 17,  cat: 'lavagem' },
+  { id: 'lav_ext',     label: 'Lavagem VIP Exterior',                  price: 12,  cat: 'lavagem' },
+  { id: 'lav_vip',     label: 'Lavagem VIP Completa',                  price: 27,  cat: 'lavagem' },
+  { id: 'estofos',     label: 'Lavagem de Estofos',                    price: 120, cat: 'lavagem' },
+  { id: 'eletrico',    label: 'Carregamento Elétrico / Híbrido',       price: 30,  cat: 'veiculo' },
+  { id: 'ipo',         label: 'Inspeção Periódica Obrigatória (IPO)',  price: 80,  cat: 'veiculo' },
+];
+
+const CAT_LABELS = { lavagem: 'Lavagem', transporte: 'Transporte', veiculo: 'Veículo', outro: 'Outro' };
+
+let lineChart, avgChart;
+
+// Build extras grid chips
+function buildExtrasUI() {
+  const grid = document.getElementById('extrasGrid');
+  grid.innerHTML = EXTRAS_LIST.map(e => `
+    <label class="extra-chip">
+      <input type="checkbox" id="ex_${e.id}" onchange="render()">
+      ${e.label} <strong style="margin-left:2px">${e.price}&thinsp;€</strong>
+    </label>`).join('');
+
+  const tbody = document.getElementById('extrasTableBody');
+  tbody.innerHTML = EXTRAS_LIST.map(e => `
+    <tr>
+      <td>${e.label}</td>
+      <td><span class="tag ${e.cat}">${CAT_LABELS[e.cat]}</span></td>
+      <td>${e.price.toFixed(2)}&thinsp;€</td>
+    </tr>`).join('');
+}
+
+function getExtrasTotal() {
+  return EXTRAS_LIST.reduce((sum, e) => {
+    const cb = document.getElementById('ex_' + e.id);
+    return sum + (cb && cb.checked ? e.price : 0);
+  }, 0);
+}
+
+function parkPrice(key, days, vehicle) {
+  const p = PARKS[key];
+  const rate = vehicle === 'large' ? p.large : p.std;
+  return Math.max(MIN_CHARGE, days * rate);
+}
+
+function fmt(n) { return n.toFixed(2).replace('.', ','); }
+
+function render() {
+  const type    = document.getElementById('parkType').value;
+  const vehicle = document.getElementById('vehicleType').value;
+  const extras  = getExtrasTotal();
+  const showAll = type === 'all';
+  const keys    = showAll ? ['descoberto','coberto_toldo','coberto'] : [type];
+
+  document.getElementById('toldoNote').style.display =
+    (keys.includes('coberto_toldo')) ? '' : 'none';
+
+  const series = keys.map(k => ({
+    key: k,
+    ...PARKS[k],
+    prices: DAYS.map(d => parkPrice(k, d, vehicle) + extras),
+  }));
+
+  renderKPIs(series, extras);
+  renderTable(series);
+  renderLineChart(series);
+  renderAvgChart(series);
+}
+
+function renderKPIs(series, extras) {
+  const milestones = [1, 7, 30];
+  const colors = ['blue','teal','green','amber'];
+  let html = '';
+  series.forEach((s, si) => {
+    milestones.forEach(d => {
+      const p = s.prices[d - 1];
+      html += `<div class="kpi ${colors[si % colors.length]}">
+        <div class="label">${s.label} · ${d} dia${d>1?'s':''}</div>
+        <div class="value">${fmt(p)}&thinsp;€</div>
+        <div class="sub">${fmt(p/d)}&thinsp;€/dia${extras ? ` (incl. ${fmt(extras)}&thinsp;€ extras)` : ''}</div>
+      </div>`;
+    });
+  });
+  document.getElementById('kpiRow').innerHTML = html;
+}
+
+function renderTable(series) {
+  const head = document.getElementById('tableHead');
+  const body = document.getElementById('tableBody');
+
+  // Header
+  let thRow = '<tr><th>Dias</th>';
+  series.forEach(s => {
+    thRow += `<th>${s.label} (€)</th>`;
+    if (series.length > 1) thRow += `<th>€/dia</th>`;
+  });
+  if (series.length > 1) thRow += '<th>Mais barato</th>';
+  thRow += '</tr>';
+  head.innerHTML = thRow;
+
+  // Body
+  body.innerHTML = DAYS.map(d => {
+    const i = d - 1;
+    const isMinRow  = series.some(s => s.prices[i] === MIN_CHARGE + getExtrasTotal() &&
+                                       (vehicle => PARKS[s.key][vehicle === 'large' ? 'large' : 'std'])
+                                         (document.getElementById('vehicleType').value) * d < MIN_CHARGE);
+    const isWeek  = d === 7;
+    const isMonth = d === 30;
+    const cls = isMonth ? 'month-row' : isWeek ? 'week-row' : '';
+
+    let tds = `<td>${d}</td>`;
+    series.forEach(s => {
+      tds += `<td>${fmt(s.prices[i])}&thinsp;€</td>`;
+      if (series.length > 1) tds += `<td style="color:var(--gray3)">${fmt(s.prices[i]/d)}</td>`;
+    });
+    if (series.length > 1) {
+      const minPrice = Math.min(...series.map(s => s.prices[i]));
+      const cheapest = series.find(s => s.prices[i] === minPrice);
+      tds += `<td style="font-weight:600;color:var(--green)">${cheapest.label.replace('Parque ','')}</td>`;
+    }
+    return `<tr class="${cls}">${tds}</tr>`;
+  }).join('');
+}
+
+function renderLineChart(series) {
+  const ctx = document.getElementById('lineChart').getContext('2d');
+  if (lineChart) lineChart.destroy();
+  lineChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: DAYS,
+      datasets: series.map(s => ({
+        label: s.label,
+        data: s.prices,
+        borderColor: s.color,
+        backgroundColor: s.color + '14',
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(2)} €` } }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Número de dias', font: { size: 11 } } },
+        y: { title: { display: true, text: 'Custo total (€)', font: { size: 11 } }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function renderAvgChart(series) {
+  const ctx = document.getElementById('avgChart').getContext('2d');
+  if (avgChart) avgChart.destroy();
+  avgChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: DAYS,
+      datasets: series.map(s => ({
+        label: s.label,
+        data: DAYS.map((d,i) => +(s.prices[i]/d).toFixed(4)),
+        borderColor: s.color,
+        backgroundColor: s.color + '0d',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 2,
+      }))
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y.toFixed(2)} €/dia` } }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Número de dias', font: { size: 11 } } },
+        y: { title: { display: true, text: 'Custo médio por dia (€)', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// Dates
+const now = new Date();
+const dateStr = now.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+document.getElementById('runDate').textContent = 'Atualizado: ' + dateStr;
+document.getElementById('footDate').textContent = dateStr;
+
+buildExtrasUI();
+render();
+</script>
+</body>
+</html>
